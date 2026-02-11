@@ -259,6 +259,15 @@ const ProjectsListPage: React.FC = () => {
   const [results, setResults] = useState<StartupIdea[]>([]);
   const [isFetching, setIsFetching] = useState(false);
 
+// ✅ ADD THIS
+const displayIdeas =
+  searchTerm ||
+  filters.stage !== 'All' ||
+  filters.category !== 'All' ||
+  filters.location !== 'All'
+    ? results
+    : startupIdeas;
+
   // ✅ Fetch from backend whenever search/filters change (debounced)
   useEffect(() => {
     const timer = setTimeout(async () => {
@@ -370,9 +379,10 @@ const ProjectsListPage: React.FC = () => {
 
         {/* Results */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
-          {results.length > 0 ? (
-            results.map((idea) => <ProjectCard key={idea.id} idea={idea} />)
-          ) : (
+          {displayIdeas.length > 0 ? (
+  displayIdeas.map((idea) => <ProjectCard key={idea.id} idea={idea} />)
+) : (
+
             <div className="col-span-full text-center py-20 bg-[var(--component-background)] rounded-3xl border-2 border-dashed border-[var(--border-primary)] p-12 overflow-hidden relative shadow-none">
               <div className="absolute inset-0 dot-pattern-bg opacity-10"></div>
               <NoResultsAnimatedGraphic />
