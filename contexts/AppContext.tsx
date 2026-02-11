@@ -1,5 +1,6 @@
 import axios from 'axios';
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
+axios.defaults.withCredentials = true;
 import { StartupIdea, Application, AppSystemNotification, AppContextType, User, Position, UserProfileUpdate, AppNotification, NotificationCategory, Startalk } from '../types'; 
 import { 
     MOCK_USERS_RAW, 
