@@ -1,4 +1,6 @@
 import axios from 'axios';
+axios.defaults.baseURL =
+  import.meta.env.VITE_API_URL || 'http://localhost:5000';
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
 axios.defaults.withCredentials = true;
 import { StartupIdea, Application, AppSystemNotification, AppContextType, User, Position, UserProfileUpdate, AppNotification, NotificationCategory, Startalk } from '../types'; 
