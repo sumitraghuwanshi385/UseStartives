@@ -1,7 +1,7 @@
 import axios from 'axios';
 axios.defaults.baseURL =
   import.meta.env.VITE_API_URL ||
-  'https://xxxxx-5000.csb.app/api';
+  'https://5000-xxxxx.app.github.dev';
 
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
 axios.defaults.withCredentials = true;
@@ -95,7 +95,7 @@ const fetchConnections = async () => {
   const login = async (credential: string, password?: string, fromSignup: boolean = false): Promise<boolean> => {
     setAuthLoadingState({ isLoading: true, messages: ["Authenticating..."]});
     try {
-      const response = await axios.post('/auth/login', { email: credential, password });
+      const response = await axios.post('/api/auth/login', { email: credential, password });
       if (response.data.success) {
         const { user, token: newToken } = response.data; // Rename to avoid conflict
         
