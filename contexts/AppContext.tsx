@@ -48,6 +48,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   const [sentConnectionRequests, setSentConnectionRequests] = useState<string[]>([]); 
   const [connectedUserIds, setConnectedUserIds] = useState<string[]>([]);
+
+// ✅ FETCH CONNECTIONS FROM BACKEND (SOURCE OF TRUTH)
+const fetchConnections = async () => {
+  const currentToken = token || localStorage.getItem('authToken');
+  if (!currentToken) return;
+
+  try {
+    const res = await axios.get('/api/connections', {
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+      },
+    });
+
+    if (res.data?.success) {
+      // backend se full user objects aa rahe hain
+      const ids = res.data.connections.map((u: any) => u._id || u.id);
+      setConnectedUserIds(ids);
+    }
+  } catch (err) {
+    console.error('fetchConnections failed', err);
+  }
+};
   
   const addNotificationCallBack = useCallback((message: string, type: AppSystemNotification['type']) => {
     const newNotification: AppSystemNotification = {
@@ -73,18 +95,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (response.data.success) {
         const { user, token: newToken } = response.data; // Rename to avoid conflict
         
-        if (user.connections) setConnectedUserIds(user.connections);
-        if (user.sentRequests) setSentConnectionRequests(user.sentRequests);
+        // ❌ connections yahan se MAT uthao (stale data hota hai)
+if (user.sentRequests) 
+  setSentConnectionRequests(user.sentRequests);
 
-        localStorage.setItem('authToken', newToken);
-        localStorage.setItem('user', JSON.stringify(user));
-        
-        // ✅ State update immediately
-        setToken(newToken);
-        setCurrentUser(user);
-        
-        setShowOnboardingModal(fromSignup || !user.headline);
-        return true;
+// ✅ auth data save
+localStorage.setItem('authToken', newToken);
+localStorage.setItem('user', JSON.stringify(user));
+
+// ✅ State update immediately
+setToken(newToken);
+setCurrentUser(user);
+
+// ✅ REAL SOURCE: backend se connections lao
+setTimeout(() => {
+  fetchConnections();
+}, 0);
+
+setShowOnboardingModal(fromSignup || !user.headline);
+return true;
       } else {
         addNotificationCallBack(response.data.message || 'Login failed.', 'error');
         return false;
@@ -382,9 +411,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const response = await axios.post(`/api/connections/accept/${requesterId}`, {}, config);
         
         if (response.data.success) {
-            setConnectedUserIds(prev => [...prev, requesterId]);
-            addNotificationCallBack("You are now connected!", "success");
-        }
+  addNotificationCallBack("You are now connected!", "success");
+  fetchConnections(); // ✅ sync again
+}
     } catch (error) {
         addNotificationCallBack("Failed to accept request.", "error");
     }
@@ -439,8 +468,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               } else {
                   setToken(storedToken);
                   setCurrentUser(parsedUser);
-                  if(parsedUser.connections) setConnectedUserIds(parsedUser.connections);
-                  if(parsedUser.sentRequests) setSentConnectionRequests(parsedUser.sentRequests);
+                  // ❌ connections local se mat uthao
+if (parsedUser.sentRequests)
+  setSentConnectionRequests(parsedUser.sentRequests);
+
+// ✅ backend se uthao
+setTimeout(() => {
+  fetchConnections();
+}, 0);
               }
           } catch (e) {
               localStorage.removeItem('authToken');
@@ -460,7 +495,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     saveProject, unsaveProject, isProjectSaved, getUserById, 
     fetchUserProfile,
     markNotificationAsRead, markAllNotificationsAsRead,
-    sentConnectionRequests, connectedUserIds, sendConnectionRequest,
+    sentConnectionRequests, connectedUserIds,fetchConnections,  sendConnectionRequest,
     acceptConnectionRequest, declineConnectionRequest, removeConnection,
     isRequestPending, isUserConnected,
     setShowOnboardingModal,
