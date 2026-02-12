@@ -22,7 +22,11 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const app = express();
 
 // ===== MIDDLEWARES =====
-app.use(cors());
+app.use(cors({
+  origin: true,          // 👈 Codespaces / frontend URL allow
+  credentials: true,     // 👈 cookies / auth headers allow
+}));
+
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ limit: '100mb', extended: true }));
 
