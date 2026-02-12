@@ -1,7 +1,7 @@
 import axios from 'axios';
 axios.defaults.baseURL =
   import.meta.env.VITE_API_URL ||
-  'https://xxxxx-5000.csb.app';
+  'https://xxxxx-5000.csb.app/api';
 
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
 axios.defaults.withCredentials = true;
