@@ -1,5 +1,8 @@
 import axios from 'axios';
-axios.defaults.baseURL = 'https://YOUR-5000-PORT-URL.csb.app';
+axios.defaults.baseURL =
+  import.meta.env.VITE_API_URL ||
+  'https://xxxxx-5000.csb.app';
+
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
 axios.defaults.withCredentials = true;
 import { StartupIdea, Application, AppSystemNotification, AppContextType, User, Position, UserProfileUpdate, AppNotification, NotificationCategory, Startalk } from '../types'; 
