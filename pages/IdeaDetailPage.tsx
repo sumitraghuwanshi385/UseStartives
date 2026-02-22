@@ -59,7 +59,9 @@ const IdeaDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const idea = ideaId ? getIdeaById(ideaId) : undefined;
-  const founder = idea ? getUserById(idea.founderId) : undefined;
+  const founder = idea?.founderId 
+  ? getUserById(idea.founderId.toString(), 'id') 
+  : undefined;
 
   if (!idea) {
     return (
