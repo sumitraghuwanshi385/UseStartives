@@ -1,4 +1,12 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useContext,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from 'react';
 import axios from 'axios';
 
 import {
@@ -11,9 +19,10 @@ import {
   AppNotification,
   NotificationCategory,
   Startalk,
+  Position,
 } from '../types';
 
-import { EnvelopeOpenIcon } from '../constants';
+import { MOCK_USERS_RAW, EnvelopeOpenIcon } from '../constants';
 
 axios.defaults.withCredentials = true;
 
@@ -48,13 +57,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // ✅ production-safe: start empty; fill from backend (connections/users endpoints)
-  const [users, setUsers] = useState<User[]>([]);
+  // NOTE: Abhi mock users fallback; baad me real users endpoint se replace kar dena
+  const [users, setUsers] = useState<User[]>(MOCK_USERS_RAW);
 
   const [token, setToken] = useState<string | null>(localStorage.getItem('authToken'));
-  const [isLoading, setIsLoading] = useState(true);
 
+  const [isLoading, setIsLoading] = useState(true);
   const [authLoadingState, setAuthLoadingState] = useState({ isLoading: false, messages: [] as string[] });
+
   const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [pendingVerificationUser, setPendingVerificationUser] = useState<{ email: string; code: string } | null>(null);
 
@@ -77,10 +87,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
-  // ✅ helper: always get latest token
   const getAuthToken = () => token || localStorage.getItem('authToken');
 
-  // ✅ SOURCE OF TRUTH: fetch connected users from backend
+  // ✅ optional: connections sync (agar aapka backend /api/connections GET deta hai)
   const fetchConnections = useCallback(async () => {
     const t = getAuthToken();
     if (!t) return;
@@ -92,12 +101,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       if (res.data?.success) {
         const backendUsers = res.data.connections || [];
-
-        // connected IDs
-        const ids = backendUsers.map((u: any) => (u.id ? u.id : u._id)).filter(Boolean);
+        const ids = backendUsers.map((u: any) => u.id || u._id).filter(Boolean);
         setConnectedUserIds(ids);
 
-        // merge users into users[] (map _id -> id)
+        // merge real users into users list (id mapping)
         setUsers((prev) => {
           const existing = new Set(prev.map((u) => u.id));
           const mapped: User[] = backendUsers.map((u: any) => ({
@@ -107,18 +114,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             headline: u.headline,
             country: u.country,
             bio: u.bio,
+            profilePictureUrl: u.profilePictureUrl || '',
             skills: u.skills || [],
             interests: u.interests || [],
             socialLinks: u.socialLinks || {},
-            profilePictureUrl: u.profilePictureUrl || '',
+            savedProjectIds: u.savedProjectIds || [],
             connections: u.connections || [],
             connectionRequests: u.connectionRequests || [],
             sentRequests: u.sentRequests || [],
-            savedProjectIds: u.savedProjectIds || [],
           }));
-
-          const newOnes = mapped.filter((u) => !existing.has(u.id));
-          return [...prev, ...newOnes];
+          const add = mapped.filter((u) => !existing.has(u.id));
+          return [...prev, ...add];
         });
       }
     } catch (err) {
@@ -126,7 +132,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [token]);
 
-  // -------------------- AUTH --------------------
+  // ---------------- AUTH ----------------
 
   const login: AppContextType['login'] = async (credential, password, fromSignup = false) => {
     setAuthLoadingState({ isLoading: true, messages: ['Authenticating...'] });
@@ -147,10 +153,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setToken(newToken);
       setCurrentUser(user);
 
-      if (user?.sentRequests) setSentConnectionRequests(user.sentRequests);
       if (user?.connections) setConnectedUserIds(user.connections);
+      if (user?.sentRequests) setSentConnectionRequests(user.sentRequests);
 
-      // ✅ sync real connections/users after login
+      // optional sync
       await fetchConnections();
 
       setShowOnboardingModal(fromSignup || !user?.headline);
@@ -166,7 +172,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const signup: AppContextType['signup'] = async (email, password) => {
     setAuthLoadingState({ isLoading: true, messages: ['Creating account...'] });
-
     try {
       const response = await axios.post('/api/auth/signup', { email, password });
 
@@ -205,23 +210,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logout: AppContextType['logout'] = () => {
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
-
     setToken(null);
     setCurrentUser(null);
-
     setConnectedUserIds([]);
     setSentConnectionRequests([]);
-    setUsers([]);
   };
 
-  // -------------------- PROFILE --------------------
+  // ---------------- PROFILE ----------------
 
   const updateUser: AppContextType['updateUser'] = async (updates: UserProfileUpdate) => {
     if (!currentUser) return false;
 
     const t = getAuthToken();
     if (!t) {
-      addNotificationCallBack('You are not logged in. Please refresh.', 'error');
+      addNotificationCallBack('You are not logged in.', 'error');
       return false;
     }
 
@@ -242,9 +244,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updatedUserData = response.data.user;
       setCurrentUser(updatedUserData);
       localStorage.setItem('user', JSON.stringify(updatedUserData));
-
-      // update user cache list
-      setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUserData : u)));
+      setUsers((prev) => prev.map((u) => (u.id === updatedUserData.id ? updatedUserData : u)));
       return true;
     } catch (error: any) {
       console.error('Update Profile Error:', error);
@@ -255,142 +255,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  // -------------------- IDEAS --------------------
-
-  const addIdea: AppContextType['addIdea'] = (ideaData) => {
-    if (!currentUser) return;
-
-    void (async () => {
-      const t = getAuthToken();
-      try {
-        const res = await axios.post('/api/ideas', ideaData, { headers: { Authorization: `Bearer ${t}` } });
-        if (res.data?.success) {
-          setStartupIdeas((prev) => [res.data.idea, ...prev]);
-          addNotificationCallBack('Project launched successfully!', 'success');
-        }
-      } catch (err: any) {
-        console.error('Add Idea Error:', err);
-        addNotificationCallBack(err?.response?.data?.message || 'Failed to launch project.', 'error');
-      }
-    })();
-  };
-
+  // ---------------- IDEAS (minimal placeholders) ----------------
+  const addIdea: AppContextType['addIdea'] = () => {};
   const updateIdea: AppContextType['updateIdea'] = () => {};
   const deleteIdea: AppContextType['deleteIdea'] = () => {};
 
-  // -------------------- STARTALKS --------------------
+  // ---------------- STARTALKS (keep your existing if needed) ----------------
+  const addStartalk: AppContextType['addStartalk'] = () => {};
+  const deleteStartalk: AppContextType['deleteStartalk'] = () => {};
+  const reactToStartalk: AppContextType['reactToStartalk'] = () => {};
 
-  const addStartalk: AppContextType['addStartalk'] = (content, imageUrl) => {
-    if (!currentUser) return;
+  // ---------------- APPLICATIONS placeholders ----------------
+  const addApplication: AppContextType['addApplication'] = () => {};
+  const updateApplicationStatus: AppContextType['updateApplicationStatus'] = () => {};
+  const removeApplication: AppContextType['removeApplication'] = () => {};
 
-    void (async () => {
-      const t = getAuthToken();
-      try {
-        const res = await axios.post('/api/startalks', { content, imageUrl }, { headers: { Authorization: `Bearer ${t}` } });
-        if (res.data?.success) {
-          setStartalks((prev) => [res.data.startalk, ...prev]);
-          addNotificationCallBack('Post shared!', 'success');
-        }
-      } catch {
-        addNotificationCallBack('Failed to post.', 'error');
-      }
-    })();
-  };
-
-  const deleteStartalk: AppContextType['deleteStartalk'] = (talkId) => {
-    void (async () => {
-      const t = getAuthToken();
-      try {
-        await axios.delete(`/api/startalks/${talkId}`, { headers: { Authorization: `Bearer ${t}` } });
-        setStartalks((prev) => prev.filter((t) => t.id !== talkId));
-        addNotificationCallBack('Post removed.', 'info');
-      } catch {
-        addNotificationCallBack('Failed to delete post.', 'error');
-      }
-    })();
-  };
-
-  const reactToStartalk: AppContextType['reactToStartalk'] = (talkId, emoji) => {
-    if (!currentUser) return;
-
-    // optimistic
-    setStartalks((prev) =>
-      prev.map((talk: any) => {
-        if (talk.id !== talkId) return talk;
-        const reactions = { ...(talk.reactions || {}) };
-        const userReactions = { ...(talk.userReactions || {}) };
-        const oldEmoji = userReactions[currentUser.id];
-
-        if (oldEmoji === emoji) {
-          reactions[emoji] = Math.max(0, (reactions[emoji] || 0) - 1);
-          if (reactions[emoji] === 0) delete reactions[emoji];
-          delete userReactions[currentUser.id];
-          return { ...talk, reactions, userReactions, currentUserReaction: undefined };
-        }
-
-        if (oldEmoji) {
-          reactions[oldEmoji] = Math.max(0, (reactions[oldEmoji] || 0) - 1);
-          if (reactions[oldEmoji] === 0) delete reactions[oldEmoji];
-        }
-
-        reactions[emoji] = (reactions[emoji] || 0) + 1;
-        userReactions[currentUser.id] = emoji;
-        return { ...talk, reactions, userReactions, currentUserReaction: emoji };
-      })
-    );
-
-    void (async () => {
-      const t = getAuthToken();
-      try {
-        const res = await axios.post(`/api/startalks/${talkId}/react`, { emoji }, { headers: { Authorization: `Bearer ${t}` } });
-        if (res.data?.success) {
-          const updatedTalk = res.data.startalk;
-          const myReaction = updatedTalk.userReactions ? updatedTalk.userReactions[currentUser.id] : undefined;
-          setStartalks((prev) => prev.map((x) => (x.id === talkId ? { ...updatedTalk, currentUserReaction: myReaction } : x)));
-        }
-      } catch (err) {
-        console.error('Reaction failed:', err);
-      }
-    })();
-  };
-
-  // -------------------- USERS HELPERS --------------------
-
-  const getIdeaById: AppContextType['getIdeaById'] = (id) => startupIdeas.find((x) => x.id === id);
-  const getPositionById: AppContextType['getPositionById'] = (ideaId, positionId) =>
-    startupIdeas.find((x) => x.id === ideaId)?.positions.find((p: any) => p.id === positionId);
-
-  const getUserById = useCallback<AppContextType['getUserById']>(
-    (identifier, by = 'id') => {
-      const all = [...users];
-      if (currentUser && !all.find((u) => u.id === currentUser.id)) all.push(currentUser);
-      return by === 'id' ? all.find((u) => u.id === identifier) : all.find((u) => u.email === identifier);
-    },
-    [users, currentUser]
-  );
-
-  const fetchUserProfile: AppContextType['fetchUserProfile'] = useCallback(
-    async (userId) => {
-      const existing = users.find((u) => u.id === userId);
-      if (existing) return existing;
-
-      try {
-        const res = await axios.get(`/api/auth/users/${userId}`);
-        if (res.data?.success) {
-          const fetchedUser = res.data.user;
-          setUsers((prev) => (prev.find((u) => u.id === fetchedUser.id) ? prev : [...prev, fetchedUser]));
-          return fetchedUser;
-        }
-      } catch (err) {
-        console.error('Fetch User Error:', err);
-      }
-      return null;
-    },
-    [users]
-  );
-
-  // -------------------- NOTIFICATIONS --------------------
-
+  // ---------------- Notifications ----------------
   const markNotificationAsRead: AppContextType['markNotificationAsRead'] = (id) => {
     setAppNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   };
@@ -400,8 +280,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     else setAppNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
-  // -------------------- CONNECTIONS --------------------
-
+  // ---------------- Connections ----------------
   const sendConnectionRequest: AppContextType['sendConnectionRequest'] = (targetUserId) => {
     if (!currentUser) return;
 
@@ -443,34 +322,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const isRequestPending: AppContextType['isRequestPending'] = (id) => sentConnectionRequests.includes(id);
   const isUserConnected: AppContextType['isUserConnected'] = (id) => connectedUserIds.includes(id);
 
-  // -------------------- APPLICATIONS (placeholders) --------------------
-  const addApplication: AppContextType['addApplication'] = () => {};
-  const updateApplicationStatus: AppContextType['updateApplicationStatus'] = () => {};
-  const removeApplication: AppContextType['removeApplication'] = () => {};
-
-  // -------------------- SAVE PROJECT --------------------
+  // ---------------- Saved projects placeholders ----------------
   const saveProject: AppContextType['saveProject'] = () => {};
   const unsaveProject: AppContextType['unsaveProject'] = () => {};
   const isProjectSaved: AppContextType['isProjectSaved'] = () => false;
 
-  // -------------------- INITIAL LOAD --------------------
+  // ---------------- Helpers ----------------
+  const getIdeaById: AppContextType['getIdeaById'] = (id) => startupIdeas.find((x) => x.id === id);
+
+  const getPositionById: AppContextType['getPositionById'] = (ideaId, positionId) =>
+    startupIdeas.find((x) => x.id === ideaId)?.positions.find((p: Position) => p.id === positionId);
+
+  const getUserById = useCallback<AppContextType['getUserById']>(
+    (identifier, by = 'id') => {
+      const all = [...users];
+      if (currentUser && !all.find((u) => u.id === currentUser.id)) all.push(currentUser);
+      return by === 'id' ? all.find((u) => u.id === identifier) : all.find((u) => u.email === identifier);
+    },
+    [users, currentUser]
+  );
+
+  const fetchUserProfile: AppContextType['fetchUserProfile'] = useCallback(async (userId) => {
+    try {
+      const res = await axios.get(`/api/auth/users/${userId}`);
+      if (res.data?.success) {
+        const fetchedUser = res.data.user;
+        setUsers((prev) => (prev.find((u) => u.id === fetchedUser.id) ? prev : [...prev, fetchedUser]));
+        return fetchedUser;
+      }
+    } catch (err) {
+      console.error('Fetch User Error:', err);
+    }
+    return null;
+  }, []);
+
+  // ---------------- INITIALIZATION ----------------
   useEffect(() => {
-    const load = async () => {
+    const loadInitialData = async () => {
       setIsLoading(true);
 
+      // load startalks/ideas if needed (optional)
       try {
-        const ideasRes = await axios.get('/api/ideas');
-        if (ideasRes.data?.success) setStartupIdeas(ideasRes.data.ideas || []);
-      } catch (e) {
-        console.error('Failed to fetch ideas', e);
-      }
-
-      try {
-        const talksRes = await axios.get('/api/startalks');
-        if (talksRes.data?.success) setStartalks(talksRes.data.startalks || []);
-      } catch (e) {
-        console.error('Failed to fetch startalks', e);
-      }
+        const response = await axios.get('/api/startalks');
+        if (response.data?.success) setStartalks(response.data.startalks || []);
+      } catch {}
 
       const storedToken = localStorage.getItem('authToken');
       const storedUser = localStorage.getItem('user');
@@ -484,7 +379,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           if (parsedUser?.sentRequests) setSentConnectionRequests(parsedUser.sentRequests);
           if (parsedUser?.connections) setConnectedUserIds(parsedUser.connections);
 
-          // ✅ sync from backend
           setTimeout(() => {
             fetchConnections();
           }, 0);
@@ -497,9 +391,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setIsLoading(false);
     };
 
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    loadInitialData();
+  }, [fetchConnections]);
 
   const contextValue = useMemo<AppContextType>(
     () => ({
@@ -511,33 +404,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       users,
       token,
       appNotifications,
+      isLoading,
+      authLoadingState,
+      showOnboardingModal,
+      setShowOnboardingModal,
+
       addIdea,
       updateIdea,
       deleteIdea,
+
       addStartalk,
       deleteStartalk,
       reactToStartalk,
+
       addApplication,
       updateApplicationStatus,
       removeApplication,
+
       addNotification: addNotificationCallBack,
       removeNotification,
+
       getIdeaById,
       getPositionById,
+
       login,
       signup,
       verifyAndLogin,
       logout,
       updateUser,
-      isLoading,
-      authLoadingState,
+
       saveProject,
       unsaveProject,
       isProjectSaved,
+
       getUserById,
       fetchUserProfile,
+
       markNotificationAsRead,
       markAllNotificationsAsRead,
+
       sentConnectionRequests,
       connectedUserIds,
       sendConnectionRequest,
@@ -546,8 +451,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       removeConnection,
       isRequestPending,
       isUserConnected,
-      showOnboardingModal,
-      setShowOnboardingModal,
     }),
     [
       startupIdeas,
@@ -558,12 +461,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       users,
       token,
       appNotifications,
-      addNotificationCallBack,
       isLoading,
       authLoadingState,
       showOnboardingModal,
       sentConnectionRequests,
       connectedUserIds,
+      addNotificationCallBack,
+      getIdeaById,
+      getPositionById,
       getUserById,
       fetchUserProfile,
     ]
