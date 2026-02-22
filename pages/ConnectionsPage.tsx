@@ -195,8 +195,8 @@ export const ConnectionsPage: React.FC = () => {
           {activeTab === 'received' && (receivedRequests.length > 0 ? receivedRequests.map(({ notification, sender }) => (
               <CompactUserCard key={notification.id} user={sender} actions={
                   <>
-                      <button onClick={() => declineConnectionRequest(notification.id)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full bg-[var(--background-tertiary)] border border-[var(--border-primary)] hover:bg-neutral-200 transition-colors shadow-none">Decline</button>
-                      <button onClick={() => acceptConnectionRequest(notification.id)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full button-gradient text-white hover:scale-105 transition-all shadow-none">Accept</button>
+                      <button onClick={() => declineConnectionRequest(notificatio.id)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full bg-[var(--background-tertiary)] border border-[var(--border-primary)] hover:bg-neutral-200 transition-colors shadow-none">Decline</button>
+                      <button onClick={() => acceptConnectionRequest(sender.id)} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-full button-gradient text-white hover:scale-105 transition-all shadow-none">Accept</button>
                   </>
               } />
           )) : <EmptyState icon={<NoReceivedRequestsGraphic />} title="No pending invites" message="You have no inbound connection requests at the moment." /> )}
