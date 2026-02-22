@@ -1,5 +1,5 @@
 import axios from 'axios';
-axios.defaults.baseURL = 'https://5000.app.github.dev';
+axios.defaults.baseURL = 'https://jubilant-giggle-...-5000.app.github.dev';
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useMemo } from 'react';
 axios.defaults.withCredentials = true;
 import { StartupIdea, Application, AppSystemNotification, AppContextType, User, Position, UserProfileUpdate, AppNotification, NotificationCategory, Startalk } from '../types'; 
