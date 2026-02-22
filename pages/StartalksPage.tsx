@@ -73,7 +73,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, onClose, onConfirm,
 const getImageUrl = (url: string) => {
   if (!url) return '';
   if (url.startsWith('http') || url.startsWith('data:')) return url;
-  return `http://localhost:5000${url}`; // ✅ Fix for local backend uploads
+  return `${url}`; // ✅ Fix for local backend uploads
 };
 
 export const StartalkCard: React.FC<{ talk: Startalk; onDeleteRequest?: (id: string) => void; className?: string }> = ({
@@ -272,7 +272,7 @@ const StartalksPage: React.FC = () => {
       formData.append('image', file);
 
       // Sending to backend
-      const res = await axios.post('http://localhost:5000/api/upload', formData, {
+      const res = await axios.post('/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
