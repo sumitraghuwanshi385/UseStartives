@@ -45,7 +45,17 @@ const DetailSection: React.FC<DetailSectionProps> = ({ title, icon, children, cl
 
 const IdeaDetailPage: React.FC = () => {
   const { ideaId } = useParams<{ ideaId: string }>();
-  const { getIdeaById, currentUser, isProjectSaved, saveProject, unsaveProject, getUserById } = useAppContext();
+  const { 
+  getIdeaById, 
+  currentUser, 
+  isProjectSaved, 
+  saveProject, 
+  unsaveProject, 
+  getUserById,
+  sendConnectionRequest,
+  isUserConnected,
+  isRequestPending
+} = useAppContext();
   const navigate = useNavigate();
 
   const idea = ideaId ? getIdeaById(ideaId) : undefined;
@@ -166,6 +176,28 @@ const IdeaDetailPage: React.FC = () => {
                                 </p>
                             </div>
                         )}
+
+{currentUser && currentUser.id !== founder.id && (
+  <div className="pt-3">
+    {isUserConnected(founder.id) ? (
+      <button className="w-full bg-green-100 text-green-700 text-xs font-bold py-2 rounded-full border border-green-200">
+        Connected
+      </button>
+    ) : isRequestPending(founder.id) ? (
+      <button className="w-full bg-yellow-100 text-yellow-700 text-xs font-bold py-2 rounded-full border border-yellow-200">
+        Request Sent
+      </button>
+    ) : (
+      <button
+        onClick={() => sendConnectionRequest(founder.id)}
+        className="w-full button-gradient text-white text-xs font-bold py-2 rounded-full hover:scale-105 transition-all"
+      >
+        Connect
+      </button>
+    )}
+  </div>
+)}
+
                     </div>
                 ) : <p className="text-sm text-[var(--text-muted)]">{idea.founderName}</p>}
             </DetailSection>
