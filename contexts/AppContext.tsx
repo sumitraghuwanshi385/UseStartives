@@ -62,15 +62,32 @@ const fetchConnections = async () => {
     });
 
     if (res.data?.success) {
-      // backend se full user objects aa rahe hain
-      const ids = res.data.connections.map((u: any) => u._id || u.id);
-      setConnectedUserIds(ids);
+      const backendUsers = res.data.connections || [];
+
+      // 1️⃣ Set connected IDs
+      setConnectedUserIds(backendUsers.map((u: any) => u._id));
+
+      // 2️⃣ Inject full users into users state (IMPORTANT FIX)
+      setUsers(prevUsers => {
+        const existingIds = prevUsers.map(u => u.id);
+
+        const mappedUsers = backendUsers.map((u: any) => ({
+          ...u,
+          id: u._id // 🔥 map Mongo _id to frontend id
+        }));
+
+        const newUsers = mappedUsers.filter(
+          (u: any) => !existingIds.includes(u.id)
+        );
+
+        return [...prevUsers, ...newUsers];
+      });
     }
   } catch (err) {
     console.error('fetchConnections failed', err);
   }
 };
-  
+
   const addNotificationCallBack = useCallback((message: string, type: AppSystemNotification['type']) => {
     const newNotification: AppSystemNotification = {
       id: new Date().toISOString() + Math.random(),
@@ -93,11 +110,25 @@ const fetchConnections = async () => {
     try {
       const response = await axios.post('/api/auth/login', { email: credential, password });
       if (response.data.success) {
-        const { user, token: newToken } = response.data; // Rename to avoid conflict
-        
-        // ❌ connections yahan se MAT uthao (stale data hota hai)
-if (user.sentRequests) 
-  setSentConnectionRequests(user.sentRequests);
+  const { user, token: newToken } = response.data;
+
+  localStorage.setItem('authToken', newToken);
+  localStorage.setItem('user', JSON.stringify(user));
+
+  setToken(newToken);
+  setCurrentUser(user);
+
+  if (user.sentRequests) {
+    setSentConnectionRequests(user.sentRequests);
+  }
+
+  // 🔥 IMPORTANT: force fetch connections AFTER setting token
+  await fetchConnections();
+
+  setShowOnboardingModal(fromSignup || !user.headline);
+
+  return true;
+}
 
 // ✅ auth data save
 localStorage.setItem('authToken', newToken);
@@ -108,9 +139,7 @@ setToken(newToken);
 setCurrentUser(user);
 
 // ✅ REAL SOURCE: backend se connections lao
-setTimeout(() => {
-  fetchConnections();
-}, 0);
+await fetchConnections();
 
 setShowOnboardingModal(fromSignup || !user.headline);
 return true;
