@@ -150,12 +150,12 @@ const EditProfilePage: React.FC = () => {
       formData.append('image', file);
 
       // ✅ Upload image to backend
-      const res = await axios.post('http://localhost:5000/api/upload', formData, {
+      const res = await axios.post('/api/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
       if (res.data?.success && res.data?.filePath) {
-        const fullPath = `http://localhost:5000${res.data.filePath}`; // Ensure full URL
+        const fullPath = `${res.data.filePath}`; // Ensure full URL
         setProfilePicturePreview(fullPath);
         addNotification('Image uploaded!', 'success');
       } else {

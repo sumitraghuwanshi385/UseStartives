@@ -4,7 +4,7 @@ import { useAppContext } from '../contexts/AppContext';
 import { User, ChatConversation, MessageType, FileAttachment } from '../types';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = ' ';
 
 // --- Icons ---
 const ArrowLeftIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
