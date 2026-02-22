@@ -13,15 +13,21 @@ const generateToken = (id) => {
 // @desc    Register new user
 // @route   POST /api/auth/signup
 const registerUser = async (req, res) => {
+    console.log("Signup body:", req.body);
+
     const { email, password, name } = req.body;
 
     try {
         const userExists = await User.findOne({ email });
         if (userExists) {
+            console.log("User already exists");
             return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        if (!password) {
+            console.log("Password missing");
+            return res.status(400).json({ success: false, message: 'Password required' });
+        }
 
         const user = await User.create({
             email,
@@ -29,18 +35,8 @@ const registerUser = async (req, res) => {
             name: name || '',
         });
 
-        if (!user) {
-            return res.status(400).json({ success: false, message: 'Invalid user data' });
-        }
+        console.log("User created:", user._id);
 
-        // Email sending (non-blocking)
-        try {
-            await sendEmail(email, 'Verify your Startives Account', verificationCode);
-        } catch (err) {
-            console.error('Email failed:', err.message);
-        }
-
-        // ✅ FIX: Return token + user
         return res.status(201).json({
             success: true,
             user: {
@@ -52,8 +48,11 @@ const registerUser = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Signup Error:', error);
-        return res.status(500).json({ success: false, message: error.message });
+        console.error("🔥 REAL SIGNUP ERROR:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 
